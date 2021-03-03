@@ -4,22 +4,15 @@ class GamesManager
   end
 
   def highest_total_score
-    scores = @games.max_by do |game|
-      game.total_goals
-    end
-    scores.total_goals
+    @games.max_by(&:total_goals).total_goals
   end
 
   def lowest_total_score
-    scores = @games.min_by do |game|
-      game.total_goals
-    end
-    scores.total_goals
+    @games.min_by(&:total_goals).total_goals
   end
 
   def count_of_games_by_season
     hash = Hash.new(0)
-
     @games.each do |game|
       hash[game.season.to_s] += 1
     end

@@ -1,10 +1,14 @@
+require './lib/stat_tracker'
 require_relative 'mathable'
 
 class GameTeamsManager
   include Mathable
 
+  attr_reader :teams
+
   def initialize(data)
     @game_teams = data.game_teams
+    @teams = data.teams
   end
 
   def percentage_home_wins
@@ -38,4 +42,24 @@ class GameTeamsManager
   def loss_percentage(team1, team2)
     (team1.losses / total_games ).round(2)
   end
+
+  def best_offense
+    data = calculate_average_scores
+    team_max = data.max_by {|team_id, average_goals| average_goals}
+    TeamsManager.new(self).get_team_name(team_max)
+  end
+
+  def calculate_average_scores
+    scores = Hash.new
+    @game_teams.each do |game_team|
+      if scores[game_team.team_id] == nil
+        scores[game_team.team_id] = []
+        scores[game_team.team_id] << game_team.goals
+      else
+        scores[game_team.team_id] << game_team.goals
+      end
+    end
+    data = Hash[scores.map { |team_id, goals| [team_id, (goals.sum.to_f / goals.length.to_f).round(2)]} ]
+  end
+
 end

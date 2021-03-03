@@ -59,18 +59,14 @@ class StatTracker
   end
 
   def count_of_teams
-    counter = 0
-    @teams.each do |team|
-      counter += 1
-    end
-    counter
+    teams_manager = TeamsManager.new(self).count_of_teams
   end
 
   def best_offense
-    data = calculate_average_scores
-    team_max = data.max_by {|team_id, average_goals| average_goals}
-
-    get_team_name(team_max)
+    teams_manager = GameTeamsManager.new(self).best_offense
+    # data = calculate_average_scores
+    # team_max = data.max_by {|team_id, average_goals| average_goals}
+    # get_team_name(team_max)
   end
 
   def worst_offense
