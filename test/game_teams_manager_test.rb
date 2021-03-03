@@ -29,4 +29,14 @@ class GameTeamsManagerTest < Minitest::Test
     assert_equal 0.04, game_teams_manager.percentage_ties
   end
 
+  def test_best_offense
+    game_teams_manager = GameTeamsManager.new(setup)
+
+    assert_equal "FC Dallas", game_teams_manager.best_offense
+  end
+
+  def calculate_average_scores
+    NEEDS TO BE MOCKED AND STUBBED
+  end
+
 end
