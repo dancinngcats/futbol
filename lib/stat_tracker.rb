@@ -95,114 +95,46 @@ class StatTracker
     game_teams_manager = GameTeamsManager.new(self).fewest_tackles(season_id)
   end
 
-  #Team Statistics
   def team_info(team_id)
     teams_manager = TeamsManager.new(self).team_info(team_id)
   end
 
-  def rival(team_id)
-    game_ids_hash = Hash.new { |hash, key| hash[key] = [] }
-    @game_teams.each do |game_team|
-      game_ids_hash[team_id] << game_team.game_id if game_team.team_id == team_id
-    end
+  def game_ids_by_team(team_id)
+    @game_teams.find_all { |team| team.team_id == team_id }
+               .map(&:game_id)
+  end
 
-    all_the_teams_that_team_id_has_played = []
-    @game_teams.each do |game_team|
-      if game_team.team_id == team_id
-        next
-      elsif game_ids_hash[team_id].include?(game_team.game_id)
-        all_the_teams_that_team_id_has_played << game_team
+  def opponents_team_ids(team_id)
+    @game_teams.reject { |team| team.team_id == team_id }
+               .find_all { |team| game_ids_by_team(team_id).include?(team.game_id)}
+  end
+
+  def rival(team_id)
+    opponents = opponents_team_ids(team_id).group_by { |team| team.team_id }
+    rival = opponents.each do |keys, values|
+      opponents[keys] = values.map do |game|
+        game.result == "WIN" ? (1) : (0)
       end
     end
-
-    all_opponents_game_by_id = all_the_teams_that_team_id_has_played.group_by do |game_team|
-      game_team.team_id
-    end
-
-    length = all_opponents_game_by_id.map do |id, game|
-      game.length
-    end
-
-    a = all_opponents_game_by_id.each do |keys, values|
-      all_opponents_game_by_id[keys] = values.map { |v|
-        if v.result == "WIN"
-           1
-         elsif v.result == "LOSS"
-           0
-         elsif v.result == "TIE"
-           0
-        end
-      }
-    end
-
-    b = a.each do |keys, values|
-      all_opponents_game_by_id[keys] = (values.sum.to_f / values.count.to_f )
-    end
-
-    c = b.max_by do |keys, values|
-      values
-    end
-
-    team = @teams.find do |team|
-      team.team_id == c.first
-    end
-    team.teamname
-
+    .each { |keys, values| opponents[keys] = (values.sum.to_f / values.count.to_f ) }
+    .max_by { |keys, values| values }
+    TeamsManager.new(self).get_team_name(rival)
   end
 
   def favorite_opponent(team_id)
-    game_ids_hash = Hash.new { |hash, key| hash[key] = [] }
-    @game_teams.each do |game_team|
-      game_ids_hash[team_id] << game_team.game_id if game_team.team_id == team_id
-    end
-
-    all_the_teams_that_team_id_has_played = []
-    @game_teams.each do |game_team|
-      if game_team.team_id == team_id
-        next
-      elsif game_ids_hash[team_id].include?(game_team.game_id)
-        all_the_teams_that_team_id_has_played << game_team
+    opponents = opponents_team_ids(team_id).group_by { |team| team.team_id }
+    favorite_opponent = opponents.each do |keys, values|
+      opponents[keys] = values.map do |opponent|
+        opponent.result == "LOSS" ? (1) : (0)
       end
     end
-    all_opponents_game_by_id = all_the_teams_that_team_id_has_played.group_by do |game_team|
-      game_team.team_id
-    end
-
-    length = all_opponents_game_by_id.map do |id, game|
-      game.length
-    end
-
-    opponent_results = all_opponents_game_by_id.each do |keys, values|
-      all_opponents_game_by_id[keys] = values.map { |opponent|
-        if opponent.result == "WIN"
-           0
-         elsif opponent.result == "LOSS"
-           1
-         elsif opponent.result == "TIE"
-           0
-        end
-      }
-    end
-
-    opponent_loss_percent = opponent_results.each do |keys, values|
-      all_opponents_game_by_id[keys] = (values.sum.to_f / values.count.to_f )
-    end
-
-    favorite_opponent = opponent_loss_percent.max_by do |keys, values|
-      values
-    end
-
-    team = @teams.find do |team|
-      team.team_id == favorite_opponent.first
-    end
-    team.teamname
-
+    .each { |keys, values| opponents[keys] = (values.sum.to_f / values.count.to_f ) }
+    .max_by { |keys, values| values }
+    TeamsManager.new(self).get_team_name(favorite_opponent)
   end
-
 
   def loss_percentage(team1, team2)
     (team1.losses / total_games ).round(2)
-
   end
 
   def average_win_percentage(team_id)
@@ -260,18 +192,13 @@ class StatTracker
   end
 
   def games_by_season(season_id)
-    season_games = Hash.new { |hash, key| hash[key] = [] }
-    @game_teams.each do |game_team|
-      season_games[season_id] << game_team if game_team.game_id[0..3] == season_id[0..3]
-    end
-    season_games
+    @game_teams.find_all { |team| team.game_id[0..3] == season_id[0..3] }
   end
 
   def most_accurate_team(season_id)
-    game_teams = games_by_season(season_id)
     shot_goal = Hash.new { |hash, key| hash[key] = [] }
-    game_teams[season_id].each do |game_team|
-      shot_goal[game_team.team_id] << game_team.shot_goal_ratio
+    games_by_season(season_id).each do |team|
+      shot_goal[team.team_id] << team.shot_goal_ratio
     end
     shot_goal.each do |team, ratio|
       shot_goal[team] = ratio.sum / ratio.length
@@ -280,17 +207,13 @@ class StatTracker
     team_ratio = shot_goal.max_by do |team, avg|
       avg
     end
-    team_name = @teams.find do |team|
-      team_ratio.first == team.team_id
-    end
-    team_name.teamname
+    TeamsManager.new(self).get_team_name(team_ratio)
   end
 
   def least_accurate_team(season_id)
-    game_teams = games_by_season(season_id)
     shot_goal = Hash.new { |hash, key| hash[key] = [] }
-    game_teams[season_id].each do |game_team|
-      shot_goal[game_team.team_id] << game_team.shot_goal_ratio
+    games_by_season(season_id).each do |team|
+      shot_goal[team.team_id] << team.shot_goal_ratio
     end
     shot_goal.each do |team, ratio|
       shot_goal[team] = ratio.sum / ratio.length
@@ -298,10 +221,7 @@ class StatTracker
     team_ratio = shot_goal.min_by do |team, avg|
       avg
     end
-    team_name = @teams.find do |team|
-      team_ratio.first == team.team_id
-    end
-    team_name.teamname
+    TeamsManager.new(self).get_team_name(team_ratio)
   end
 
 
